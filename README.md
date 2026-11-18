@@ -18,6 +18,7 @@ Windows 桌面小工具：用一个界面同时跑两套文件类型识别引擎
 
 - Magika：调用 `magika -V` 读本地版本，与 GitHub `cli/v*` 最新 tag 比对；下载 Windows zip 后同目录暂存、实跑 `-V` 校验版本、备份 `.bak`、原子替换，失败回滚。
 - TrID 定义库：从官方 `https://mark0.net/download/triddefs_xml.7z`（约 2.7 MB、2.27 万个 `*.trid.xml`）下载，用 SharpCompress 解压后装入引擎的 `PatternEngine.LoadDefinitionByXml`，替换本地定义目录。界面在设置里显示当前条数与包日期。
+  更新前先做**日期比对**：对同一个 URL 发 `HEAD` 请求，比对远端 `Last-Modified` 与本地已装包的时间戳（精确到秒；老清单只有日期时按天比），远端不比本地新就不下载，只提示"已是最新"。检测失败（断网等）时仍允许手动下载。
 
 定义库与缓存的存放位置（用户目录，安装目录无写权限时也能更新）：
 

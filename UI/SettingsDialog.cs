@@ -31,6 +31,10 @@ public sealed class SettingsDialog : Form
     private string _magikaCurrentVersion = "";
     private string? _magikaCheckError;
 
+    // TrID 定义库的日期比对结果（null 表示还没检测）
+    private TridDefsCheck? _tridCheck;
+    private string? _tridCheckError;
+
     public bool MagikaUpdated { get; private set; }
     public bool TridUpdated { get; private set; }
     public bool LanguageChanged { get; private set; }
@@ -50,6 +54,7 @@ public sealed class SettingsDialog : Form
 
         ApplyLocalization();
         _ = RefreshMagikaVersionAsync();
+        _ = RefreshTridVersionAsync();
     }
 
     private void InitializeDialog()
@@ -253,7 +258,52 @@ public sealed class SettingsDialog : Form
         _tridStatus.ForeColor = _tridStore.HasDefinitions ? Theme.Good : Theme.TextMuted;
         _tridUpdateBtn.Text = Localization.T("update.trid.button");
 
+        ApplyTridState();
         ApplyMagikaState();
+    }
+
+    /// <summary>按日期比对结果刷新 TrID 行：检测中 / 有新版本 / 已是最新 / 检测失败。</summary>
+    private void ApplyTridState()
+    {
+        if (_tridCheckError is not null)
+        {
+            _tridStatus.Text = Localization.T("update.trid.checkFailed", _tridCheckError);
+            _tridStatus.ForeColor = Theme.TextMuted;
+            _tridUpdateBtn.Text = Localization.T("update.trid.button");
+            return;
+        }
+
+        var check = _tridCheck;
+        if (check is null)
+        {
+            // 尚未检测完：先显示本地状态，按钮仍可直接下载
+            _tridStatus.Text = TridStatusText();
+            _tridStatus.ForeColor = _tridStore.HasDefinitions ? Theme.Good : Theme.TextMuted;
+            _tridUpdateBtn.Text = Localization.T("update.trid.button");
+            return;
+        }
+
+        if (!check.HasLocalDefs)
+        {
+            _tridStatus.Text = Localization.T("update.trid.builtin");
+            _tridStatus.ForeColor = Theme.TextMuted;
+            _tridUpdateBtn.Text = Localization.T("update.trid.button");
+            return;
+        }
+
+        if (check.HasUpdate)
+        {
+            _tridStatus.Text = Localization.T("update.trid.hasUpdate", check.RemoteDate, check.LocalDate);
+            _tridStatus.ForeColor = Theme.Warn;
+            _tridUpdateBtn.Text = Localization.T("update.trid.button");
+        }
+        else
+        {
+            _tridStatus.Text = Localization.T("update.trid.latest",
+                check.LocalCount.ToString("N0"), check.LocalDate);
+            _tridStatus.ForeColor = Theme.Good;
+            _tridUpdateBtn.Text = Localization.T("update.trid.recheckButton");
+        }
     }
 
     /// <summary>TrID 定义库状态：装了官方库就显示条数与包日期，否则提示用的是内置快照。</summary>
@@ -343,17 +393,52 @@ public sealed class SettingsDialog : Form
         }
     }
 
+    private async Task RefreshTridVersionAsync()
+    {
+        try
+        {
+            _tridCheck = await _tridStore.CheckUpdateAsync();
+            _tridCheckError = _tridCheck.Error;
+        }
+        catch (Exception ex)
+        {
+            _tridCheckError = ex.Message;
+        }
+        ApplyTridState();
+    }
+
     private async Task UpdateTridAsync()
     {
         _tridUpdateBtn.Enabled = false;
         try
         {
-            AppendLog(Localization.T("update.trid.starting"));
+            // 先按日期比对：本地包比远端新或同一天，就不下载
+            if (_tridCheck is not { HasUpdate: true })
+            {
+                AppendLog(Localization.T("update.trid.starting"));
+                _tridCheck = await _tridStore.CheckUpdateAsync();
+                _tridCheckError = _tridCheck.Error;
+                ApplyTridState();
+
+                if (!_tridCheck.HasUpdate && _tridCheck.HasLocalDefs)
+                {
+                    AppendLog(Localization.T("update.trid.alreadyLatest"));
+                    return;
+                }
+            }
+
             var count = await _tridStore.UpdateAsync(new Progress<string>(AppendLog));
             TridUpdated = true;
 
-            _tridStatus.Text = TridStatusText();
-            _tridStatus.ForeColor = Theme.Good;
+            _tridCheck = new TridDefsCheck
+            {
+                HasLocalDefs = true,
+                HasUpdate = false,
+                LocalCount = _tridStore.Count,
+                LocalDate = _tridStore.PackageDate
+            };
+            _tridCheckError = null;
+            ApplyTridState();
             AppendLog(Localization.T("update.log.ok",
                 Localization.T("update.trid.updated", count.ToString("N0"))));
         }

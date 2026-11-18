@@ -36,6 +36,12 @@ public sealed class TridDefsStore
     /// <summary>定义包日期（取下载时的 Last-Modified，取不到就用安装当天）。</summary>
     public string PackageDate { get; private set; } = "";
 
+    /// <summary>本地已装定义包的精确时间戳（Last-Modified）；旧清单可能只有日期没有它。</summary>
+    public DateTime? PackageTimestamp { get; private set; }
+
+    /// <summary>本地已装定义包的大小（字节）。</summary>
+    public long PackageSize { get; private set; }
+
     public TridDefsStore(string rootDir)
     {
         RootDir = rootDir;
@@ -67,11 +73,17 @@ public sealed class TridDefsStore
             progress?.Report(Localization.T("update.trid.downloading"));
             var archivePath = Path.Combine(work, "triddefs_xml.7z");
             var remoteDate = "";
+            DateTime? remoteStamp = null;
+            long remoteSize = 0;
             using (var resp = await Http.GetAsync(SourceUrl, HttpCompletionOption.ResponseHeadersRead, ct))
             {
                 resp.EnsureSuccessStatusCode();
                 if (resp.Content.Headers.LastModified is { } lm)
+                {
+                    remoteStamp = lm.UtcDateTime;
                     remoteDate = lm.LocalDateTime.ToString("yyyy-MM-dd");
+                }
+                remoteSize = resp.Content.Headers.ContentLength ?? 0;
                 await using var src = await resp.Content.ReadAsStreamAsync(ct);
                 await using var dst = File.Create(archivePath);
                 await src.CopyToAsync(dst, ct);
@@ -100,6 +112,8 @@ public sealed class TridDefsStore
             PackageDate = string.IsNullOrEmpty(remoteDate)
                 ? DateTime.Now.ToString("yyyy-MM-dd")
                 : remoteDate;
+            PackageTimestamp = remoteStamp ?? DateTime.Now.ToUniversalTime();
+            PackageSize = remoteSize > 0 ? remoteSize : new FileInfo(archivePath).Length;
             WriteManifest();
             return Count;
         }
@@ -141,11 +155,18 @@ public sealed class TridDefsStore
             if (m is null) return;
             Count = m.Count;
             PackageDate = m.Date ?? "";
+            PackageSize = m.Size;
+            if (!string.IsNullOrWhiteSpace(m.LastModified) &&
+                DateTime.TryParse(m.LastModified, null,
+                    System.Globalization.DateTimeStyles.RoundtripKind, out var ts))
+                PackageTimestamp = ts.ToUniversalTime();
         }
         catch
         {
             Count = 0;
             PackageDate = "";
+            PackageSize = 0;
+            PackageTimestamp = null;
         }
     }
 
@@ -155,17 +176,95 @@ public sealed class TridDefsStore
         {
             Count = Count,
             Date = PackageDate,
+            LastModified = PackageTimestamp?.ToString("o"),
+            Size = PackageSize,
             Source = SourceUrl,
             BuiltAt = DateTime.Now
         };
         File.WriteAllText(ManifestFile, JsonSerializer.Serialize(m, new JsonSerializerOptions { WriteIndented = true }));
     }
 
+    /// <summary>
+    /// 比对本地定义包与官方包的日期：远端 Last-Modified 不比本地新（一致或更旧）就不需要更新。
+    /// 只发 HEAD 请求，不下载正文。
+    /// </summary>
+    public async Task<TridDefsCheck> CheckUpdateAsync(CancellationToken ct = default)
+    {
+        var check = new TridDefsCheck
+        {
+            HasLocalDefs = HasDefinitions,
+            LocalDate = PackageDate,
+            LocalCount = Count
+        };
+
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Head, SourceUrl);
+            using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+            resp.EnsureSuccessStatusCode();
+
+            var remoteStamp = resp.Content.Headers.LastModified?.UtcDateTime;
+            check.RemoteSize = resp.Content.Headers.ContentLength ?? 0;
+            check.RemoteDate = remoteStamp?.ToLocalTime().ToString("yyyy-MM-dd") ?? "";
+
+            if (!HasDefinitions)
+            {
+                // 本地只有内置快照，官方包总是"更新"
+                check.HasUpdate = true;
+                return check;
+            }
+
+            if (remoteStamp is null)
+            {
+                // 服务器没给日期就无从比对，允许下载
+                check.HasUpdate = true;
+                return check;
+            }
+
+            if (PackageTimestamp is { } localStamp)
+            {
+                // 精确到秒：远端更新才算有新版；相等（或本地更晚）就不动
+                check.HasUpdate = remoteStamp.Value > localStamp;
+            }
+            else
+            {
+                // 老清单只有日期（yyyy-MM-dd）：同一天视为一致，不更新
+                check.HasUpdate = !string.Equals(check.LocalDate, check.RemoteDate, StringComparison.Ordinal);
+            }
+        }
+        catch (Exception ex)
+        {
+            // 网络失败时不让用户卡住：允许下载，错误信息交给界面显示
+            check.HasUpdate = true;
+            check.Error = ex.Message;
+        }
+
+        return check;
+    }
+
     private sealed class Manifest
     {
         public int Count { get; set; }
         public string? Date { get; set; }
+        /// <summary>包时间戳（ISO 8601，UTC），用于和远端 Last-Modified 精确比对。</summary>
+        public string? LastModified { get; set; }
+        public long Size { get; set; }
         public string? Source { get; set; }
         public DateTime BuiltAt { get; set; }
     }
+}
+
+/// <summary>定义库更新检查结果。</summary>
+public sealed class TridDefsCheck
+{
+    /// <summary>本地是否装了外部定义库。</summary>
+    public bool HasLocalDefs { get; set; }
+    /// <summary>是否需要下载更新（远端比本地新，或本地没有外部定义库）。</summary>
+    public bool HasUpdate { get; set; }
+    public string RemoteDate { get; set; } = "";
+    public string LocalDate { get; set; } = "";
+    public int LocalCount { get; set; }
+    public long RemoteSize { get; set; }
+    /// <summary>检查失败的原因（如断网）；此时 HasUpdate=true，仍允许用户手动下载。</summary>
+    public string? Error { get; set; }
 }
