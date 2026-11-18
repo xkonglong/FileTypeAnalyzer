@@ -1,4 +1,4 @@
-﻿# File Type Analyzer
+# File Type Analyzer
 
 Windows 桌面小工具：用一个界面同时跑两套文件类型识别引擎，结果并排对比。
 
@@ -29,13 +29,13 @@ Windows 桌面小工具：用一个界面同时跑两套文件类型识别引擎
 └── triddefs.json    清单：条数、包日期、包时间戳、包大小
 ```
 
-程序目录不可写时（例如装进 `Program Files`），自动退回 `%LOCALAPPDATA%\FileTypeAnalyzer`。老版本把定义库放在用户目录，升级后首次启动会自动搬到程序目录：清单和缓存立即搬走（当次就能用），2 万个 XML 在后台拷完再改名，不会卡住窗口。
+程序目录不可写时（例如装进 `Program Files`），自动退回 `%LOCALAPPDATA%\FileTypeAnalyzer`。
 
 首次装入 2.2 万个 XML 需要约 3.5 秒（后台线程执行，不挡窗体）；之后启动直接读缓存，加载只要一百多毫秒。删掉 `triddefs.cache` 会重新解析，删掉 `defs\` 和清单即回到内置定义。
 
 ## 构建
 
-需要 .NET 8 SDK。项目根目录下有两个 csproj（`Program.csproj` 是历史残留），构建时请显式指定：
+需要 .NET 8 SDK。构建命令：
 
 ```bat
 dotnet build FileTypeAnalyzer.csproj

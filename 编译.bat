@@ -45,8 +45,8 @@ echo [成功] 输出目录: %~dp0%OUTDIR%
 echo.
 
 rem ---- 运行时依赖提示（只检查，不影响编译结果）----
-for %%F in (TrIDLib.dll triddefs.trd magika.exe) do (
-    if not exist "%OUTDIR%\%%F" echo [提示] 输出目录缺少 %%F，运行时请放入该文件。
+for %%F in (magika.exe) do (
+    if not exist "%OUTDIR%\%%F" echo [提示] 输出目录缺少 %%F，Magika 引擎不可用（可在设置里下载）。
 )
 if not exist "%OUTDIR%\lang\*.json" echo [提示] 输出目录缺少 lang\*.json，界面将使用内置默认文案。
 

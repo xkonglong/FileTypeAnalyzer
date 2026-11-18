@@ -22,20 +22,10 @@ internal static class Program
         Theme.Apply(settings.DarkTheme);
 
         // TrID 定义库放在程序目录（便携、跟着 exe 走）；目录不可写（如装在 Program Files）时才退回用户目录
-        var tridRoot = baseDir;
-        var legacyTridRoot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FileTypeAnalyzer");
-
-        if (!IsWritable(baseDir))
-        {
-            tridRoot = legacyTridRoot;
-        }
-        else if (Directory.Exists(Path.Combine(legacyTridRoot, "defs")))
-        {
-            // 老版本把定义库放在 %LOCALAPPDATA%，搬到程序目录，避免用户还要重新下载一遍
-            TridDefsStore.MigrateFrom(legacyTridRoot, tridRoot);
-        }
+        var tridRoot = IsWritable(baseDir)
+            ? baseDir
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "FileTypeAnalyzer");
 
         var tridStore = new TridDefsStore(tridRoot);
 
