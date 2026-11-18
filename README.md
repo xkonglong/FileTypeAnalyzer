@@ -2,6 +2,8 @@
 
 Windows 桌面小工具：用一个界面同时跑两套文件类型识别引擎，结果并排对比。
 
+![主界面：同一个文件同时跑 TrID 与 Magika，底部给出一致性判断](docs/screenshot.png)
+
 - **TrID** —— 基于文件签名的识别，使用托管引擎 `TrID.dll`（NuGet 包 TriDEngine 1.2.4），给出最匹配的 5 项文件类型和置信度。纯 .NET 实现，无 32 位原生依赖，进程保持 AnyCPU。签名定义可选用官方最新 XML 库（约 2.27 万条），未安装时回退到程序集内置的 2016 年快照（约 6300 条）。
 - **Magika** —— Google Magika 的 CLI（AI 模型），给出标签、MIME、描述和置信分数。
 
