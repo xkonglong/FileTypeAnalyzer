@@ -21,8 +21,13 @@ internal static class Program
 
         Theme.Apply(settings.DarkTheme);
 
-        // TrID 用托管引擎（定义内置），不再需要 triddefs.trd
-        var analyzer = new FileAnalyzer(new TridEngine(), new MagikaCliEngine(magikaExe));
-        Application.Run(new MainForm(analyzer, magikaExe, langDir, args));
+        // TrID 定义库放在用户目录（安装目录可能没有写权限）；没装外部库时引擎自动用内置快照
+        var tridRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "FileTypeAnalyzer");
+        var tridStore = new TridDefsStore(tridRoot);
+
+        var analyzer = new FileAnalyzer(new TridEngine(tridStore), new MagikaCliEngine(magikaExe));
+        Application.Run(new MainForm(analyzer, tridStore, magikaExe, langDir, args));
     }
 }

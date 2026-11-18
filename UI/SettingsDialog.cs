@@ -5,6 +5,7 @@ namespace FileTypeAnalyzer.UI;
 public sealed class SettingsDialog : Form
 {
     private readonly EngineUpdater _updater;
+    private readonly TridDefsStore _tridStore;
     private readonly string _magikaExePath;
     private readonly string _langDir;
 
@@ -13,6 +14,7 @@ public sealed class SettingsDialog : Form
 
     private readonly Label _tridLabel = new();
     private readonly Label _tridStatus = new();
+    private readonly Button _tridUpdateBtn = new();
 
     private readonly Label _magikaLabel = new();
     private readonly Label _magikaStatus = new();
@@ -30,11 +32,13 @@ public sealed class SettingsDialog : Form
     private string? _magikaCheckError;
 
     public bool MagikaUpdated { get; private set; }
+    public bool TridUpdated { get; private set; }
     public bool LanguageChanged { get; private set; }
 
-    public SettingsDialog(EngineUpdater updater, string magikaExePath, string langDir)
+    public SettingsDialog(EngineUpdater updater, TridDefsStore tridStore, string magikaExePath, string langDir)
     {
         _updater = updater;
+        _tridStore = tridStore;
         _magikaExePath = magikaExePath;
         _langDir = langDir;
 
@@ -77,7 +81,7 @@ public sealed class SettingsDialog : Form
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         root.Controls.Add(BuildLanguageRow(), 0, 0);
-        root.Controls.Add(BuildEngineRow(_tridLabel, _tridStatus, null, null), 0, 1);
+        root.Controls.Add(BuildEngineRow(_tridLabel, _tridStatus, _tridUpdateBtn, UpdateTridAsync), 0, 1);
         root.Controls.Add(BuildEngineRow(_magikaLabel, _magikaStatus, _magikaUpdateBtn, UpdateMagikaAsync), 0, 2);
         root.Controls.Add(BuildLogBox(), 0, 3);
         root.Controls.Add(BuildFooter(), 0, 4);
@@ -245,11 +249,17 @@ public sealed class SettingsDialog : Form
         _copyrightLabel.Text = Localization.T("settings.copyright");
         _websiteLink.Text = AppInfo.Website;
 
-        _tridStatus.Text = Localization.T("update.trid.builtin");
-        _tridStatus.ForeColor = Theme.TextMuted;
+        _tridStatus.Text = TridStatusText();
+        _tridStatus.ForeColor = _tridStore.HasDefinitions ? Theme.Good : Theme.TextMuted;
+        _tridUpdateBtn.Text = Localization.T("update.trid.button");
 
         ApplyMagikaState();
     }
+
+    /// <summary>TrID 定义库状态：装了官方库就显示条数与包日期，否则提示用的是内置快照。</summary>
+    private string TridStatusText() => _tridStore.HasDefinitions
+        ? Localization.T("update.trid.external", _tridStore.Count.ToString("N0"), _tridStore.PackageDate)
+        : Localization.T("update.trid.builtin");
 
     /// <summary>根据当前 Magika 状态（未安装 / 检测中 / 有更新 / 已最新 / 检测失败）刷新文案。</summary>
     private void ApplyMagikaState()
@@ -331,6 +341,29 @@ public sealed class SettingsDialog : Form
             _magikaCheckError = ex.Message;
             ApplyMagikaState();
         }
+    }
+
+    private async Task UpdateTridAsync()
+    {
+        _tridUpdateBtn.Enabled = false;
+        try
+        {
+            AppendLog(Localization.T("update.trid.starting"));
+            var count = await _tridStore.UpdateAsync(new Progress<string>(AppendLog));
+            TridUpdated = true;
+
+            _tridStatus.Text = TridStatusText();
+            _tridStatus.ForeColor = Theme.Good;
+            AppendLog(Localization.T("update.log.ok",
+                Localization.T("update.trid.updated", count.ToString("N0"))));
+        }
+        catch (Exception ex)
+        {
+            _tridStatus.Text = Localization.T("update.trid.failedText");
+            _tridStatus.ForeColor = Theme.Bad;
+            AppendLog(Localization.T("update.log.fail", "TrID", ex.Message));
+        }
+        finally { _tridUpdateBtn.Enabled = true; }
     }
 
     private async Task UpdateMagikaAsync()

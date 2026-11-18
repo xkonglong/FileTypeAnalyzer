@@ -10,7 +10,7 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <AssemblyName>FileTypeAnalyzer</AssemblyName>
     <RootNamespace>FileTypeAnalyzer</RootNamespace>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <ApplicationIcon>FileTypeAnalyzer.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
@@ -36,5 +36,7 @@
       <HintPath>assets\TrID.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <!-- 官方 TrID 定义库只发 .7z，.NET 没有内置 7z 解码，用纯托管的 SharpCompress 解压 -->
+    <PackageReference Include="SharpCompress" Version="0.50.9" />
   </ItemGroup>
 </Project>
