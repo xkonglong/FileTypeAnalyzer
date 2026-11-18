@@ -1,0 +1,14 @@
+# 构建产物
+bin/
+obj/
+*.pdb
+*.dll.bak
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# 临时文件
+*.log
+*.tmp

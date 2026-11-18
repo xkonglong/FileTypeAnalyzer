@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PlatformTarget>x86</PlatformTarget>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <AssemblyName>FileTypeAnalyzer</AssemblyName>
+    <RootNamespace>FileTypeAnalyzer</RootNamespace>
+    <Version>1.1.0</Version>
+    <ApplicationIcon>FileTypeAnalyzer.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- 窗体图标与 exe 图标使用同一个 .ico：嵌入后由 AppInfo.LoadIcon 读取，替换图标只需重新编译 -->
+    <EmbeddedResource Include="FileTypeAnalyzer.ico" LogicalName="app.ico" />
+    <!-- 图标字体随程序打包，避免依赖系统是否装有 Segoe Fluent Icons -->
+    <EmbeddedResource Include="assets\fa-solid-900.ttf" LogicalName="icons.ttf" />
+    <Content Include="assets\FontAwesome-LICENSE.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="lang\**\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- TrIDLib.dll 是 32 位原生 DLL，由 TridEngine 通过 DllImport 直接加载，
+         必须和 exe 放在同一目录，否则运行时报“未找到 TrIDLib.dll”。
+         Link 让它复制到输出根目录（而不是 assets\ 子目录）。 -->
+    <None Update="assets\TrIDLib.dll">
+      <Link>TrIDLib.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+</Project>
