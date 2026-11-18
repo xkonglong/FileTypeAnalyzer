@@ -5,7 +5,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <PlatformTarget>x86</PlatformTarget>
+    <!-- TrID 改用托管引擎，无原生 32 位依赖，进程不再限制位数 -->
+    <PlatformTarget>anycpu</PlatformTarget>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <AssemblyName>FileTypeAnalyzer</AssemblyName>
     <RootNamespace>FileTypeAnalyzer</RootNamespace>
@@ -29,13 +30,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- TrIDLib.dll 是 32 位原生 DLL，由 TridEngine 通过 DllImport 直接加载，
-         必须和 exe 放在同一目录，否则运行时报“未找到 TrIDLib.dll”。
-         Link 让它复制到输出根目录（而不是 assets\ 子目录）。 -->
-    <None Update="assets\TrIDLib.dll">
-      <Link>TrIDLib.dll</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </None>
+    <!-- TrID 托管引擎（NuGet 包 TriDEngine 1.2.4 中的 lib/net40/TrID.dll，纯 .NET，签名定义内置）
+         以程序集引用方式引入，构建时自动复制到输出目录。 -->
+    <Reference Include="TrID">
+      <HintPath>assets\TrID.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
 </Project>

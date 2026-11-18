@@ -1,4 +1,4 @@
-{
+﻿{
   "app.title": "File Type Analyzer | TrID + Magika",
   "app.title.sendTo": "File Type Analyzer | TrID + Magika — from Send To",
   "app.version": "v{0}",
@@ -63,9 +63,8 @@
   "lang.en": "English",
 
   "update.title": "Update Engines & Definitions",
-  "update.trid.label": "🔍 TrID definitions (triddefs.trd)",
-  "update.trid.exists": "Definitions present",
-  "update.trid.notFound": "Definitions not found",
+  "update.trid.label": "🔍 TrID signatures (managed)",
+  "update.trid.builtin": "Definitions are compiled into the assembly; nothing to update",
   "update.trid.button": "Download & Update",
   "update.magika.label": "🤖 Magika CLI (magika.exe)",
   "update.magika.detecting": "Detecting...",

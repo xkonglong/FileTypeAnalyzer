@@ -6,7 +6,6 @@ namespace FileTypeAnalyzer.UI;
 public partial class MainForm : Form
 {
     private FileAnalyzer _analyzer;
-    private readonly string _tridDefsPath;
     private readonly string _magikaExePath;
     private readonly string _langDir;
     private readonly string[] _initialFiles;
@@ -30,11 +29,10 @@ public partial class MainForm : Form
     /// <summary>程序版本，取自程序集版本（可在 csproj 的 Version 属性中维护）。</summary>
     private static readonly string AppVersion = AppInfo.Version;
 
-    public MainForm(FileAnalyzer analyzer, string tridDefsPath, string magikaExePath,
+    public MainForm(FileAnalyzer analyzer, string magikaExePath,
         string langDir, string[] initialFiles)
     {
         _analyzer = analyzer;
-        _tridDefsPath = tridDefsPath;
         _magikaExePath = magikaExePath;
         _langDir = langDir;
         _initialFiles = initialFiles;
@@ -206,8 +204,7 @@ public partial class MainForm : Form
 
     private void SettingsButton_Click(object? sender, EventArgs e)
     {
-        using var dlg = new SettingsDialog(new EngineUpdater(),
-            _tridDefsPath, _magikaExePath, _langDir);
+        using var dlg = new SettingsDialog(new EngineUpdater(), _magikaExePath, _langDir);
         dlg.ShowDialog(this);
 
         if (dlg.LanguageChanged)
@@ -217,11 +214,12 @@ public partial class MainForm : Form
             if (_lastResult is not null) RenderResult(_lastResult);
         }
 
-        if (dlg.TridUpdated || dlg.MagikaUpdated)
+        // 只有 Magika 可更新；TrID 定义内置在程序集里，无需重新加载引擎
+        if (dlg.MagikaUpdated)
         {
             try { _analyzer.Dispose(); } catch { }
             _analyzer = new FileAnalyzer(
-                new TridEngine(_tridDefsPath),
+                new TridEngine(),
                 new MagikaCliEngine(_magikaExePath));
             ApplyEngineStatus();
             _statusLabel.Text = Localization.T("status.engineReloaded");

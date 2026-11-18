@@ -1,8 +1,8 @@
-# File Type Analyzer
+﻿# File Type Analyzer
 
 Windows 桌面小工具：用一个界面同时跑两套文件类型识别引擎，结果并排对比。
 
-- **TrID** —— 基于文件签名的识别，用 `TrIDLib.dll` + `triddefs.trd` 定义库，给出最匹配的若干文件类型和置信度。
+- **TrID** —— 基于文件签名的识别，使用托管引擎 `TrID.dll`（NuGet 包 TriDEngine 1.2.4，约 6300 条签名定义编译进程序集），给出最匹配的 5 项文件类型和置信度。纯 .NET 实现，无 32 位原生依赖，进程保持 AnyCPU。
 - **Magika** —— Google Magika 的 CLI（AI 模型），给出标签、MIME、描述和置信分数。
 
 两个引擎的结果会做一致性评估，用来判断"签名与模型是否给出同一结论"。
@@ -17,7 +17,7 @@ Windows 桌面小工具：用一个界面同时跑两套文件类型识别引擎
 ## 引擎更新
 
 - Magika：调用 `magika -V` 读本地版本，与 GitHub `cli/v*` 最新 tag 比对；下载 Windows zip 后同目录暂存、实跑 `-V` 校验版本、备份 `.bak`、原子替换，失败回滚。
-- TrID 定义库：从 mark0.net 下载 `triddefs.zip` 解压到程序目录。
+- TrID：定义随程序集打包，无需更新（设置窗口里只显示状态，不提供更新按钮）。
 
 ## 构建
 
@@ -31,13 +31,14 @@ dotnet build FileTypeAnalyzer.csproj
 
 ### 运行依赖
 
-以下文件必须和 exe 在同一目录（构建时会自动复制 `TrIDLib.dll`）：
+TrID 引擎改为托管实现后，只需要 `magika.exe`（可选，缺省时 Magika 面板显示未安装）：
 
 | 文件 | 说明 |
 | --- | --- |
-| `TrIDLib.dll` | 32 位原生 DLL，因此项目固定 `PlatformTarget = x86` |
-| `triddefs.trd` | TrID 定义库，首次可用设置里的"下载更新定义库"获取 |
-| `magika.exe` | Magika CLI，可在设置里下载更新 |
+| `TrID.dll` | 托管 TrID 引擎，程序集引用，构建时自动复制到输出目录 |
+| `magika.exe` | Magika CLI，可在设置里检查并下载更新 |
+
+不再需要 `TrIDLib.dll`（32 位原生 DLL）和 `triddefs.trd`：签名定义已随 `TrID.dll` 打包。
 
 ## 许可与致谢
 

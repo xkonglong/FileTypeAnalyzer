@@ -5,7 +5,6 @@ namespace FileTypeAnalyzer.UI;
 public sealed class SettingsDialog : Form
 {
     private readonly EngineUpdater _updater;
-    private readonly string _tridDefsPath;
     private readonly string _magikaExePath;
     private readonly string _langDir;
 
@@ -14,7 +13,6 @@ public sealed class SettingsDialog : Form
 
     private readonly Label _tridLabel = new();
     private readonly Label _tridStatus = new();
-    private readonly Button _tridUpdateBtn = new();
 
     private readonly Label _magikaLabel = new();
     private readonly Label _magikaStatus = new();
@@ -31,15 +29,12 @@ public sealed class SettingsDialog : Form
     private string _magikaCurrentVersion = "";
     private string? _magikaCheckError;
 
-    public bool TridUpdated { get; private set; }
     public bool MagikaUpdated { get; private set; }
     public bool LanguageChanged { get; private set; }
 
-    public SettingsDialog(EngineUpdater updater, string tridDefsPath,
-        string magikaExePath, string langDir)
+    public SettingsDialog(EngineUpdater updater, string magikaExePath, string langDir)
     {
         _updater = updater;
-        _tridDefsPath = tridDefsPath;
         _magikaExePath = magikaExePath;
         _langDir = langDir;
 
@@ -82,7 +77,7 @@ public sealed class SettingsDialog : Form
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         root.Controls.Add(BuildLanguageRow(), 0, 0);
-        root.Controls.Add(BuildEngineRow(_tridLabel, _tridStatus, _tridUpdateBtn, UpdateTridAsync), 0, 1);
+        root.Controls.Add(BuildEngineRow(_tridLabel, _tridStatus, null, null), 0, 1);
         root.Controls.Add(BuildEngineRow(_magikaLabel, _magikaStatus, _magikaUpdateBtn, UpdateMagikaAsync), 0, 2);
         root.Controls.Add(BuildLogBox(), 0, 3);
         root.Controls.Add(BuildFooter(), 0, 4);
@@ -124,7 +119,8 @@ public sealed class SettingsDialog : Form
         return row;
     }
 
-    private Control BuildEngineRow(Label titleLabel, Label status, Button button, Func<Task> onClick)
+    /// <summary>引擎信息行。button 为 null 表示该引擎不需要更新（例如内置定义的 TrID）。</summary>
+    private Control BuildEngineRow(Label titleLabel, Label status, Button? button, Func<Task>? onClick)
     {
         var row = new TableLayoutPanel
         {
@@ -146,13 +142,22 @@ public sealed class SettingsDialog : Form
         status.ForeColor = Theme.TextMuted;
         status.AutoSize = true;
 
-        StyleUpdateButton(button);
-        button.Click += async (_, _) => await onClick();
-
         row.Controls.Add(titleLabel, 0, 0);
         row.Controls.Add(status, 0, 1);
-        row.Controls.Add(button, 1, 0);
-        row.SetRowSpan(button, 2);
+
+        if (button is not null && onClick is not null)
+        {
+            StyleUpdateButton(button);
+            button.Click += async (_, _) => await onClick();
+            row.Controls.Add(button, 1, 0);
+            row.SetRowSpan(button, 2);
+        }
+        else
+        {
+            // 无按钮时让状态文字跨两行，避免布局塌陷
+            row.SetRowSpan(status, 2);
+        }
+
         return row;
     }
 
@@ -240,11 +245,8 @@ public sealed class SettingsDialog : Form
         _copyrightLabel.Text = Localization.T("settings.copyright");
         _websiteLink.Text = AppInfo.Website;
 
-        _tridStatus.Text = File.Exists(_tridDefsPath)
-            ? Localization.T("update.trid.exists")
-            : Localization.T("update.trid.notFound");
-        _tridStatus.ForeColor = File.Exists(_tridDefsPath) ? Theme.TextMuted : Theme.Warn;
-        _tridUpdateBtn.Text = Localization.T("update.trid.button");
+        _tridStatus.Text = Localization.T("update.trid.builtin");
+        _tridStatus.ForeColor = Theme.TextMuted;
 
         ApplyMagikaState();
     }
@@ -309,26 +311,6 @@ public sealed class SettingsDialog : Form
 
     private void AppendLog(string msg) =>
         _logBox.AppendText($"[{DateTime.Now:HH:mm:ss}] {msg}{Environment.NewLine}");
-
-    private async Task UpdateTridAsync()
-    {
-        _tridUpdateBtn.Enabled = false;
-        try
-        {
-            var msg = await _updater.UpdateTridDefsAsync(_tridDefsPath, new Progress<string>(AppendLog));
-            TridUpdated = true;
-            _tridStatus.Text = msg;
-            _tridStatus.ForeColor = Theme.Good;
-            AppendLog(Localization.T("update.log.ok", msg));
-        }
-        catch (Exception ex)
-        {
-            _tridStatus.Text = Localization.T("update.trid.failed");
-            _tridStatus.ForeColor = Theme.Bad;
-            AppendLog(Localization.T("update.log.fail", "TrID", ex.Message));
-        }
-        finally { _tridUpdateBtn.Enabled = true; }
-    }
 
     private async Task RefreshMagikaVersionAsync()
     {

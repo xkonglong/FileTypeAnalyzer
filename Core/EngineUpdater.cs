@@ -8,42 +8,6 @@ public sealed class EngineUpdater
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(120) };
 
-    // ---------- TrID 定义库 ----------
-
-    public async Task<string> UpdateTridDefsAsync(string targetDefsPath,
-        IProgress<string>? progress = null, CancellationToken ct = default)
-    {
-        const string url = "https://mark0.net/download/triddefs.zip";
-        progress?.Report("正在下载 TrID 定义库...");
-
-        var tempDir = Path.Combine(Path.GetTempPath(), "FTAtrid_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDir);
-
-        try
-        {
-            var zipPath = Path.Combine(tempDir, "triddefs.zip");
-            await DownloadFileAsync(url, zipPath, ct);
-
-            progress?.Report("正在解压...");
-            ZipFile.ExtractToDirectory(zipPath, tempDir, overwriteFiles: true);
-
-            var extracted = Directory.EnumerateFiles(tempDir, "triddefs.trd",
-                SearchOption.AllDirectories).FirstOrDefault()
-                ?? throw new InvalidOperationException("下载包中未找到 triddefs.trd");
-
-            if (File.Exists(targetDefsPath))
-                File.Copy(targetDefsPath, targetDefsPath + ".bak", overwrite: true);
-
-            File.Copy(extracted, targetDefsPath, overwrite: true);
-            progress?.Report("TrID 定义库已更新。");
-            return $"TrID 定义库已更新（{new FileInfo(targetDefsPath).Length / 1024} KB）";
-        }
-        finally
-        {
-            try { Directory.Delete(tempDir, true); } catch { }
-        }
-    }
-
     // ---------- Magika CLI ----------
 
     public async Task<(bool HasUpdate, string LatestTag, string DownloadUrl, string CurrentVersion)>

@@ -1,4 +1,4 @@
-{
+﻿{
   "app.title": "File Type Analyzer | TrID + Magika",
   "app.title.sendTo": "File Type Analyzer | TrID + Magika — 来自「发送到」",
   "app.version": "v{0}",
@@ -63,9 +63,8 @@
   "lang.en": "English",
 
   "update.title": "更新引擎与识别库",
-  "update.trid.label": "🔍 TrID 定义库 (triddefs.trd)",
-  "update.trid.exists": "当前库已存在",
-  "update.trid.notFound": "未找到定义库",
+  "update.trid.label": "🔍 TrID 签名库（托管引擎）",
+  "update.trid.builtin": "定义内置在程序集中，无需更新",
   "update.trid.button": "下载并更新",
   "update.magika.label": "🤖 Magika CLI (magika.exe)",
   "update.magika.detecting": "检测中...",

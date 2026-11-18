@@ -12,7 +12,6 @@ internal static class Program
 
         var baseDir = AppContext.BaseDirectory;
         var langDir = Path.Combine(baseDir, "lang");
-        var tridDefs = Path.Combine(baseDir, "triddefs.trd");
         var magikaExe = Environment.GetEnvironmentVariable("MAGIKA_PATH")
                         ?? Path.Combine(baseDir, "magika.exe");
 
@@ -22,7 +21,8 @@ internal static class Program
 
         Theme.Apply(settings.DarkTheme);
 
-        var analyzer = new FileAnalyzer(new TridEngine(tridDefs), new MagikaCliEngine(magikaExe));
-        Application.Run(new MainForm(analyzer, tridDefs, magikaExe, langDir, args));
+        // TrID 用托管引擎（定义内置），不再需要 triddefs.trd
+        var analyzer = new FileAnalyzer(new TridEngine(), new MagikaCliEngine(magikaExe));
+        Application.Run(new MainForm(analyzer, magikaExe, langDir, args));
     }
 }
