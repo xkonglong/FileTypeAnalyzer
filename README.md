@@ -9,6 +9,12 @@ Windows 桌面小工具：用一个界面同时跑两套文件类型识别引擎
 
 两个引擎的结果会做一致性评估，用来判断"签名与模型是否给出同一结论"。
 
+## 下载
+
+[**FileTypeAnalyzer v1.2.0**](https://github.com/xkonglong/FileTypeAnalyzer/releases/latest) —— 解压即用，压缩包里已带 TrID 官方定义库（22,760 条）和 Magika CLI，不需要额外安装引擎。
+
+运行需要 .NET 8 桌面运行时（Windows 10 及以上）。
+
 ## 界面
 
 - 拖拽文件或点"打开"选文件，选完自动分析；
