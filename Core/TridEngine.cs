@@ -154,18 +154,20 @@ public sealed class TridEngine : ITridEngine
             try
             {
                 var files = _store!.GetXmlFiles();
-                if (files.Length == 0)
-                {
-                    _loadError = "TrID 定义库为空，请重新下载。";
-                    return false;
-                }
-
-                var cached = TridDefsCache.TryLoad(_store.CacheFile, files.Length);
+                // 优先用缓存：XML 目录缺失（比如刚迁移、拷贝还没完成）时按清单条数校验缓存
+                var expected = files.Length > 0 ? files.Length : _store.Count;
+                var cached = expected > 0 ? TridDefsCache.TryLoad(_store.CacheFile, expected) : null;
                 if (cached is not null)
                 {
                     _external = new ManagedTrID.PatternEngine(cached, 2048);
                     _defsCount = cached.Count;
                     return true;
+                }
+
+                if (files.Length == 0)
+                {
+                    _loadError = "TrID 定义库为空，请重新下载。";
+                    return false;
                 }
 
                 var engine = new ManagedTrID.PatternEngine();

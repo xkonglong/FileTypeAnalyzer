@@ -14,10 +14,11 @@ namespace FileTypeAnalyzer.Core;
 /// 引擎公开的 PatternEngine.LoadDefinitionByXml 可以直接吃这些 XML，
 /// 所以不需要退回 32 位原生 TrIDLib 也能用上最新定义。
 ///
-/// 目录结构（默认放在 %LOCALAPPDATA%\FileTypeAnalyzer）：
-///   defs\           解压后的 *.trid.xml（平铺存放）
+/// 目录结构（默认放在程序目录，即 exe 同级）：
+///   defs\           解压后的 *.trid.xml（按官方 0…27 分目录存放）
 ///   triddefs.cache  解析后的定义二进制缓存（避免每次启动重新解析 2 万个 XML）
-///   triddefs.json   清单：条数、包日期、写入时间
+///   triddefs.json   清单：条数、包日期、包时间戳、包大小、写入时间
+/// 程序目录不可写时才退回 %LOCALAPPDATA%\FileTypeAnalyzer。
 /// </summary>
 public sealed class TridDefsStore
 {
@@ -51,7 +52,71 @@ public sealed class TridDefsStore
         LoadManifest();
     }
 
-    public bool HasDefinitions => Count > 0 && Directory.Exists(DefsDir);
+    public bool HasDefinitions => Count > 0 && (Directory.Exists(DefsDir) || File.Exists(CacheFile));
+
+    /// <summary>
+    /// 把旧位置（%LOCALAPPDATA%）的定义库搬到程序目录，只搬一次；目标已有目录时不动。
+    /// 迁移失败不影响使用（下次点更新会重新下载）。
+    /// </summary>
+    public static void MigrateFrom(string legacyRoot, string targetRoot)
+    {
+        try
+        {
+            if (string.Equals(Path.GetFullPath(legacyRoot), Path.GetFullPath(targetRoot),
+                    StringComparison.OrdinalIgnoreCase))
+                return;
+
+            var targetDefs = Path.Combine(targetRoot, "defs");
+            if (Directory.Exists(targetDefs)) return;
+
+            // 清单和缓存是小文件，同步搬走：本次启动就能直接用最新定义，不必等 XML 拷完
+            Directory.CreateDirectory(targetRoot);
+            foreach (var name in new[] { "triddefs.cache", "triddefs.json" })
+            {
+                var src = Path.Combine(legacyRoot, name);
+                if (File.Exists(src)) File.Move(src, Path.Combine(targetRoot, name), true);
+            }
+
+            var legacyDefs = Path.Combine(legacyRoot, "defs");
+            if (!Directory.Exists(legacyDefs)) return;
+
+            // XML 有 2 万多个小文件，跨卷时只能逐个拷；放到后台拷到 defs.partial 再改名，
+            // 避免启动时在 UI 线程上卡半分钟，也避免留下拷了一半的 defs 目录
+            Task.Run(() =>
+            {
+                var partial = targetDefs + ".partial";
+                try
+                {
+                    if (Directory.Exists(partial)) Directory.Delete(partial, true);
+                    CopyDirectory(legacyDefs, partial);
+                    if (Directory.Exists(targetDefs)) Directory.Delete(targetDefs, true);
+                    Directory.Move(partial, targetDefs);
+                    Directory.Delete(legacyDefs, true);
+                }
+                catch
+                {
+                    // 拷失败就留着旧的不管，下次启动重试
+                    try { if (Directory.Exists(partial)) Directory.Delete(partial, true); } catch { }
+                }
+            });
+        }
+        catch
+        {
+            // 迁移失败静默忽略，不影响启动
+        }
+    }
+
+    private static void CopyDirectory(string source, string target)
+    {
+        Directory.CreateDirectory(target);
+        foreach (var file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var rel = Path.GetRelativePath(source, file);
+            var dest = Path.Combine(target, rel);
+            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+            File.Copy(file, dest, true);
+        }
+    }
 
     public string[] GetXmlFiles() =>
         Directory.Exists(DefsDir)
@@ -100,12 +165,19 @@ public sealed class TridDefsStore
                 Overwrite = true
             });
 
-            var extracted = Directory.GetFiles(xmlDir, "*.trid.xml", SearchOption.AllDirectories).Length;
+            // 官方包内自带一层 defs 根目录（defs/0/xxx.trid.xml），装到本地时把这层剥掉，
+            // 免得出现 defs\defs\0 这种套娃路径
+            var sourceDir = xmlDir;
+            var inner = Path.Combine(xmlDir, "defs");
+            if (Directory.Exists(inner) && Directory.GetFileSystemEntries(xmlDir).Length == 1)
+                sourceDir = inner;
+
+            var extracted = Directory.GetFiles(sourceDir, "*.trid.xml", SearchOption.AllDirectories).Length;
             if (extracted < 1000)
                 throw new InvalidOperationException($"定义包内容异常：只解出 {extracted} 个定义文件。");
 
             progress?.Report(Localization.T("update.trid.installing", extracted));
-            ReplaceDefsDir(xmlDir);
+            ReplaceDefsDir(sourceDir);
 
             if (File.Exists(CacheFile)) File.Delete(CacheFile);
             Count = extracted;
@@ -124,8 +196,7 @@ public sealed class TridDefsStore
     }
 
     /// <summary>替换定义目录：先把旧目录改名备份，失败时还原。</summary>
-    private void ReplaceDefsDir(string newDir)
-    {
+    private void ReplaceDefsDir(string newDir)    {
         var backup = DefsDir + ".old";
         if (Directory.Exists(backup)) Directory.Delete(backup, true);
 

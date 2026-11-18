@@ -20,16 +20,18 @@ Windows 桌面小工具：用一个界面同时跑两套文件类型识别引擎
 - TrID 定义库：从官方 `https://mark0.net/download/triddefs_xml.7z`（约 2.7 MB、2.27 万个 `*.trid.xml`）下载，用 SharpCompress 解压后装入引擎的 `PatternEngine.LoadDefinitionByXml`，替换本地定义目录。界面在设置里显示当前条数与包日期。
   更新前先做**日期比对**：对同一个 URL 发 `HEAD` 请求，比对远端 `Last-Modified` 与本地已装包的时间戳（精确到秒；老清单只有日期时按天比），远端不比本地新就不下载，只提示"已是最新"。检测失败（断网等）时仍允许手动下载。
 
-定义库与缓存的存放位置（用户目录，安装目录无写权限时也能更新）：
+定义库与缓存默认存放在**程序目录**（exe 同级，便携、跟着程序走）：
 
 ```text
-%LOCALAPPDATA%\FileTypeAnalyzer\
-├── defs\            官方 XML 定义（按 defs\0…defs\27 分目录）
+<程序目录>\
+├── defs\            官方 XML 定义（按 0…27 分目录，不带多余的 defs 外层）
 ├── triddefs.cache   解析后的二进制缓存（约 8 MB，首次装入后生成）
-└── triddefs.json    清单：条数、包日期
+└── triddefs.json    清单：条数、包日期、包时间戳、包大小
 ```
 
-首次装入 2.2 万个 XML 需要约 3.5 秒（后台线程执行，不挡窗体）；之后启动直接读缓存，加载只要一百多毫秒。删掉 `triddefs.cache` 会重新解析，删掉整个目录即回到内置定义。
+程序目录不可写时（例如装进 `Program Files`），自动退回 `%LOCALAPPDATA%\FileTypeAnalyzer`。老版本把定义库放在用户目录，升级后首次启动会自动搬到程序目录：清单和缓存立即搬走（当次就能用），2 万个 XML 在后台拷完再改名，不会卡住窗口。
+
+首次装入 2.2 万个 XML 需要约 3.5 秒（后台线程执行，不挡窗体）；之后启动直接读缓存，加载只要一百多毫秒。删掉 `triddefs.cache` 会重新解析，删掉 `defs\` 和清单即回到内置定义。
 
 ## 构建
 
